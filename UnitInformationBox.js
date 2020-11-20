@@ -4,20 +4,100 @@ export default class UnitInformationBox extends React.Component {
     constructor(props) {
         super(props);
         this.state={
-            info: {afscs:[] }
+            info: {
+                name:'',
+                location:'',
+                size:'',
+                afscs:''
+            },
+            modify: {
+                name:'',
+                location:'',
+                size:'',
+                afscs:''
+            },
+            isEditing: {
+                name:false,
+                location:false,
+                size:false,
+                afscs:false
+            }
         }
     }
-    initializeInfo() {
-        this.setState({info:{afscs:[]}});
+
+    async getUnitInfo() {
+        let data = await fetch(`http://localhost:4444/units/${this.props.unit}`);
+        data = await data.json();
+        if (data.code===200) {
+            return {...data.result,afscs:data.result.afscs.join()};
+        }else{
+            throw new Error("Failed to read data from API");
+        }
     }
     async componentDidMount() {
-      fetch(`http://localhost:4444/units/${this.props.unit}`)
-      .then(response => response.json())
-      .then(data => {
-          if (data.code===200) {
-            this.setState({ info: data.result})
-          }
-      });
+        this.getUnitInfo()
+        .then(data=>this.setState({info:data}))
+        .catch(()=>this.setState(
+            {info: {
+                name:'',
+                location:'',
+                size:'',
+                afscs:''
+                }
+            })
+        );
+    }
+    handleChangeText=(field,value)=>{
+        let currentModify=this.state.modify;
+        currentModify[field]=value;
+        this.setState({modify:currentModify})
+    }
+    handleSubmit=(field) => {
+        ///TODO SUBMIT CHANGES TO DB THEN REQUEST NEW INFO
+        fetch(`http://localhost:4444/units/${this.props.unit}`,{
+            method: 'PATCH',
+            headers:{
+                "Content-Type":"application/json"
+            }
+        }).then(data=>data.json()).then(data=>console.log(data));
+        //clear entries and undo editing state. easiest to just cancel
+        this.handleCancel(field);
+    }
+    handleCancel=(field) => {
+        let modify=this.state.modify;
+        modify[field] = '';
+        let isEditing = this.state.isEditing;
+        isEditing[field] = false;
+        this.setState({modify:modify,isEditing:isEditing});
+    }
+    handleStartEditing=(field) => {
+        let modify=this.state.modify;
+        modify[field] = this.state.info[field];
+        let isEditing = this.state.isEditing;
+        isEditing[field] = true;
+        this.setState({modify:modify,isEditing:isEditing});
+    }
+    labelOrEdit=(field) => {
+        if (this.state.isEditing[field]) {
+            return (
+                <div className="input-group mb-3">
+                    <input type='text' className='form-control' value={this.state.modify[field]} onChange={(event)=>this.handleChangeText(field,event.target.value)} />
+                    <div className="input-group-append">
+                        <button type='button' onClick={()=>this.handleSubmit(field)}>OK</button>
+                        <button type='button' onClick={()=>this.handleCancel(field)}>Cancel</button>
+                    </div>
+                </div>
+            )
+        }else{
+            return (
+                <div className="input-group mb-3">
+                    <input type="text" readOnly className="form-control-plaintext"  value={this.state.info[field]} />
+                    <div className="input-group-append">
+                        <button type='button' onClick={()=>this.handleStartEditing(field)}>Edit</button>
+                    </div>
+                </div>
+            )
+        }
     }
     render() {
         /*
@@ -37,10 +117,14 @@ export default class UnitInformationBox extends React.Component {
                 <div className="card-body">
                 <h4 className="card-title">Unit Information</h4>
                 {/* <img src={this.state.info.logo} alt={`Logo for ${this.state.info.name}`} width='100px' height='100px'/><br /> */}
-                <p className="card-text">Name: {this.state.info.name} </p>
-                <p className="card-text">Location: {this.state.info.location} </p>
-                <p className="card-text">Population: {this.state.info.size} </p>
-                <p className="card-text">AFSCs Available: {this.state.info.afscs.join()} </p>
+                
+                
+                
+                
+                <div className="card-text">{this.labelOrEdit('name')} </div>
+                <div className="card-text">Location: {this.labelOrEdit('location')} </div>
+                <div className="card-text">Population: {this.labelOrEdit('size')} </div>
+                <div className="card-text">AFSCs Available: {this.labelOrEdit('afscs')} </div>
                 </div>
             </div>
 
